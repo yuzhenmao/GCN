@@ -25,24 +25,27 @@ class GraphConv(torch.nn.Module):
 
 class MY_GCN(torch.nn.Module):
 
-    def __init__(self, nfeat, nhid, nclass, depth, bias=True, dropout=0.5):
+    def __init__(self, nfeat, nhid, nclass, ndim, depth, bias=True, dropout=0.5):
         super(MY_GCN, self).__init__()
         self.depth = depth
         self.bias = bias
         self.dropout = dropout
+
         gc = []
-        for i in range(depth + 1):
+        for i in range(depth + 2):
             if i == 0:
-                gc.append(GraphConv(nfeat, nhid))
+                gc.append(GraphConv(nfeat, nhid[0]))
             elif i == depth:
-                gc.append(GraphConv(nhid, nclass))
+                gc.append(GraphConv(nhid[depth-1], nclass))
+            elif i == depth + 1:
+                gc.append(GraphConv(nhid[depth-1], ndim))
             else:
-                gc.append(GraphConv(nhid, nhid))
+                gc.append(GraphConv(nhid[i-1], nhid[i]))
         self.gc = nn.ModuleList(gc)
         self.randominit()
 
     def randominit(self):
-        for i in range(self.depth + 1):
+        for i in range(self.depth + 2):
             out_dim, in_dim = self.gc[i].weight.shape
             stdv = np.sqrt(2 / (in_dim + out_dim))
             self.gc[i].weight.data.uniform_(-stdv, stdv)
@@ -59,6 +62,7 @@ class MY_GCN(torch.nn.Module):
             H = self.gc[i](H, A)
             H = F.relu(H)
             H = F.dropout(H, self.dropout, training=self.training)
-        H = self.gc[self.depth](H, A)
+        H_class = self.gc[self.depth](H, A)
+        H_link = self.gc[self.depth + 1](H, A)
         # return F.log_softmax(H, dim=1)
-        return H
+        return H_class, H_link

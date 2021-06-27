@@ -8,14 +8,15 @@ np.random.seed(12345)
 class MyData:
     NEGATIVE_TABLE_SIZE = 1e8
 
-    def __init__(self, adj, features, labels, conn, hide_conn, un_conn, frequency):
+    def __init__(self, adj, actual_adj, features, labels, conn, hide_conn, un_conn, frequency):
 
         self.adj = adj
+        self.actual_adj = actual_adj
         self.features = features
         self.labels = labels
         self.conn = conn
         self.hide_conn = hide_conn
-        self.un_conn = un_conn
+        self.un_conn = un_conn[['node_1', "node_2"]].values.tolist()
         self.negatives = []
         self.discards = []
         self.negpos = 0
@@ -46,7 +47,7 @@ class MyData:
         response = []
         while len(response) < size:
             j = self.negatives[self.negpos]
-            if self.adj[target, j] == 0:
+            if self.actual_adj[target, j] == 0:
                 response.append(j)
             if self.negpos == (len(self.negatives) - 1):
                 self.negpos = 0
@@ -63,7 +64,10 @@ class MyDataset(Dataset):
         self.neg_num = neg_num
 
     def __len__(self):
-        return self.data.link_count
+        if self.task == "train":
+            return self.data.link_count
+        if self.task == "test":
+            return len(self.data.hide_conn)
 
     def __getitem__(self, idx):
         if self.task == "train":
@@ -85,3 +89,4 @@ class MyDataset(Dataset):
         all_neg_v_idx = np.array(all_neg_v_idx).reshape(-1, self.neg_num)
 
         return torch.LongTensor(all_u_idx), torch.LongTensor(all_v_idx), torch.LongTensor(all_neg_v_idx)
+
